@@ -21,6 +21,7 @@ struct Options {
     bool relative_time = false;
     bool include_imu = true;
     bool include_camera_info = true;
+    bool include_panorama = true;
     bool force = false;
 };
 

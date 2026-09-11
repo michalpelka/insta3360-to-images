@@ -1,11 +1,12 @@
 # insta360-to-images
 
-A dependency-free C++17 rewrite of
-[InstaToBag](https://github.com/michalpelka/InstaToBag) that converts an Insta360
-`.insv` capture into **per-camera folders of timestamped JPEG frames** instead of a
-ROS 2 MCAP bag: both fisheye tracks, each frame named by its nanosecond timestamp on
-the camera's own clock, plus an optional 1 kHz IMU CSV and per-lens intrinsics
-sidecar.
+A C++17 rewrite of [InstaToBag](https://github.com/michalpelka/InstaToBag) that
+converts an Insta360 `.insv` capture into **per-camera folders of timestamped JPEG
+frames** instead of a ROS 2 MCAP bag: both fisheye tracks, each frame named by its
+nanosecond timestamp on the camera's own clock, plus an optional 1 kHz IMU CSV,
+per-lens intrinsics sidecar, and the camera's own stitched equirectangular preview.
+Dependency-free apart from OpenCV, which is used for exactly one thing -- see
+[Panorama](#panorama-jpg) below.
 
 Developed and verified against an **Insta360 X5** (firmware `v1.10.11_build1`, 5.7K
 dual-fisheye, 2880x2880 per lens at 24 fps). The trailer format is shared across the
@@ -14,8 +15,9 @@ present" rather than to wrong values when a firmware revision differs.
 
 ## Build
 
-Requires a C++17 compiler, CMake >= 3.16, and `ffmpeg`/`ffprobe` on `PATH` at
-*runtime* (not needed to build):
+Requires a C++17 compiler, CMake >= 3.16, OpenCV (`core`, `imgproc`, `imgcodecs` --
+e.g. `brew install opencv` or `apt install libopencv-dev`), and `ffmpeg`/`ffprobe` on
+`PATH` at *runtime* (not needed to build):
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -50,7 +52,7 @@ Run `insta360-to-images --help` for the full set. The useful ones:
 | `--scale SPEC` | `0.5` or `1440x1440`. Intrinsics are rescaled to match. |
 | `--max-frames N` | Stop after N frames. |
 | `--swap-lenses` | Map the second video track to `cam_front`. |
-| `--no-imu` / `--no-camera-info` | Leave out `imu.csv` / the intrinsics sidecar. |
+| `--no-imu` / `--no-camera-info` / `--no-panorama` | Leave out `imu.csv` / the intrinsics sidecar / `panorama.jpg`. |
 | `--relative-time` | Start timestamps at zero instead of the capture wall clock. |
 | `-f`, `--force` | Write into a non-empty output directory. |
 
@@ -68,10 +70,32 @@ Run `insta360-to-images --help` for the full set. The useful ones:
     <timestamp_ns>.jpg
     ...
   imu.csv                   # timestamp_ns,accel_x_mps2,...,gyro_z_radps at ~1 kHz
+  panorama.jpg              # the camera's own firmware-stitched equirect preview
 ```
 
 With `--relative-time`, filenames and `imu.csv` timestamps count nanoseconds from the
 start of the clip instead of epoch nanoseconds.
+
+### `panorama.jpg`
+
+This is **not** a panorama this tool computes. The trailer already carries a
+low-resolution (typically 1280x640) equirectangular thumbnail that the camera's own
+firmware stitched from both lenses at capture time (trailer record `0x0002`); this
+tool just decodes its NV12 pixel format via `cv::cvtColor` and writes it out as a
+JPEG via `cv::imwrite` -- the only thing OpenCV is used for.
+
+There is no per-frame, full-resolution equirectangular video output. The per-lens
+`offset_v2` calibration embedded in the file (`fx`/`fy`/`cx`/`cy` plus five distortion
+coefficients) does not fit any documented fisheye projection model closely enough to
+re-derive the camera's stitch ourselves: plugging its numbers into the equidistant,
+equisolid, stereographic, or a normalized-domain polynomial model all give a field of
+view around 35-40 degrees for a lens that visibly covers most of a hemisphere. This
+confirms the caveat below about the distortion model being proprietary and
+undocumented -- it isn't just incompatible with OpenCV's fisheye calibration, it
+doesn't match any standard model tried. A real per-frame stitch would have to fall
+back to feature-based alignment (`cv::Stitcher` or the `cv::detail` pipeline) on rough
+fisheye dewarps rather than trusting this calibration for geometry, which is a
+separate, experimental piece of work not included here.
 
 ### `camera_info.json`
 
@@ -126,6 +150,7 @@ physically validated. This rewrite reads the identical byte layout.
 | `include/insta360/sensors.hpp`, `src/sensors.cpp` | IMU, exposure and frame-timestamp decoding |
 | `include/insta360/subprocess.hpp`, `src/subprocess.cpp` | `posix_spawn`-based child process wrapper (no shell) |
 | `include/insta360/media.hpp`, `src/media.cpp` | ffprobe/ffmpeg piping, JPEG frame splitting |
+| `include/insta360/panorama.hpp`, `src/panorama.cpp` | Decodes the firmware-stitched preview (the only file that touches OpenCV) |
 | `include/insta360/convert.hpp`, `src/convert.cpp` | Merges every stream into timestamped files on disk |
 | `src/cli.cpp` | Argument parsing, `--inspect`, `main` |
 | `tests/` | Unit tests against byte-exact synthetic trailers and protobuf messages |

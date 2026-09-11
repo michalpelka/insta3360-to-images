@@ -5,6 +5,7 @@ add_executable(insta360_tests
   calibration_test.cpp
   sensors_test.cpp
   convert_test.cpp
+  panorama_test.cpp
 )
 target_link_libraries(insta360_tests PRIVATE insta360_core)
 target_include_directories(insta360_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -9,6 +9,10 @@ endif()
 
 add_compile_options(-Wall -Wextra)
 
+# Only panorama.cpp (decoding the camera's own firmware-stitched preview image)
+# touches OpenCV; everything else in this project is dependency-free.
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
+
 add_library(insta360_core
   src/protobuf.cpp
   src/trailer.cpp
@@ -17,9 +21,11 @@ add_library(insta360_core
   src/sensors.cpp
   src/subprocess.cpp
   src/media.cpp
+  src/panorama.cpp
   src/convert.cpp
 )
-target_include_directories(insta360_core PUBLIC include)
+target_include_directories(insta360_core PUBLIC include ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(insta360_core PUBLIC ${OpenCV_LIBS})
 
 add_executable(insta360-to-images src/cli.cpp)
 target_link_libraries(insta360-to-images PRIVATE insta360_core)

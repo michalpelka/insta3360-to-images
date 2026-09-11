@@ -12,6 +12,7 @@
 #include "insta360/calibration.hpp"
 #include "insta360/media.hpp"
 #include "insta360/metadata.hpp"
+#include "insta360/panorama.hpp"
 #include "insta360/sensors.hpp"
 #include "insta360/trailer.hpp"
 
@@ -305,6 +306,17 @@ Summary convert(const Options& options, const std::function<void(const std::stri
     if (options.include_imu && !imu_samples.empty()) {
         write_imu_csv(output_dir / "imu.csv", imu_samples, time_of);
         summary.counts["imu"] = static_cast<int64_t>(imu_samples.size());
+    }
+
+    if (options.include_panorama) {
+        if (trailer.contains(REC_PREVIEW)) {
+            PreviewImage preview = read_preview(trailer.read(REC_PREVIEW));
+            write_panorama_preview(preview, (output_dir / "panorama.jpg").string());
+            summary.counts["panorama"] = 1;
+        } else {
+            summary.warnings.push_back(
+                "file carries no embedded preview image; panorama.jpg omitted");
+        }
     }
 
     // -- video ---------------------------------------------------------------------
