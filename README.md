@@ -66,18 +66,18 @@ Run `insta360-to-images --help` for the full set. The useful ones:
 ```
 <output>/
   cam_front/
-    camera_info.json        # once, if lens calibration was present
-    1736432112123456789.jpg # one per frame, named by its epoch nanosecond timestamp
-    1736432112165123456.jpg
+    camera_info.json              # once, if lens calibration was present
+    front_1736432112123456789.jpg # one per frame, named by its epoch nanosecond timestamp
+    front_1736432112165123456.jpg
     ...
   cam_back/
     camera_info.json
-    <timestamp_ns>.jpg
+    back_<timestamp_ns>.jpg
     ...
-  imu.csv                   # timestamp_ns,accel_x_mps2,...,gyro_z_radps at ~1 kHz
-  panorama.jpg              # the camera's own firmware-stitched equirect preview
-  equirect/                 # unless --no-equirect
-    <timestamp_ns>.jpg      # one geometrically stitched equirect frame per video frame
+  imu.csv                         # timestamp_ns,accel_x_mps2,...,gyro_z_radps at ~1 kHz
+  panorama.jpg                    # the camera's own firmware-stitched equirect preview
+  equirect/                       # unless --no-equirect
+    equirectangular_<timestamp_ns>.jpg # one geometrically stitched equirect frame per video frame
 ```
 
 With `--relative-time`, filenames and `imu.csv` timestamps count nanoseconds from the
@@ -95,7 +95,7 @@ JPEG via `cv::imwrite`.
 
 By default this tool computes a real per-frame geometric equirectangular stitch, at
 `--equirect-width` resolution (default 3840x1920), one JPEG per video frame, named
-the same way as `cam_front`/`cam_back`; pass `--no-equirect` to skip it (it's
+`equirectangular_<timestamp_ns>.jpg`; pass `--no-equirect` to skip it (it's
 compute-heavy). Row 0 is the south pole by default (the 180-degree flip, see below,
 is applied unless you pass `--no-equirect-flip`); pass `--no-equirect-flip` if your
 consumer expects row 0 at the north pole (straight up) instead. The flip does a full

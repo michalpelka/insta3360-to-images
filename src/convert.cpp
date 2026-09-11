@@ -381,7 +381,11 @@ Summary convert(const Options& options, const std::function<void(const std::stri
             }
             int64_t log_time = time_of(frames.device_us[index]);
             for (size_t i = 0; i < cameras.size(); ++i) {
-                fs::path filename = cameras[i].dir / (std::to_string(log_time) + ".jpg");
+                // camera.name is "cam_front"/"cam_back"; the exported file itself is
+                // prefixed with just "front_"/"back_" so it reads well on its own once
+                // pulled out of the per-camera directory.
+                std::string prefix = cameras[i].name.substr(cameras[i].name.find('_') + 1) + "_";
+                fs::path filename = cameras[i].dir / (prefix + std::to_string(log_time) + ".jpg");
                 std::ofstream out(filename, std::ios::binary);
                 out.write(reinterpret_cast<const char*>(frame_data[i]->data()),
                           static_cast<std::streamsize>(frame_data[i]->size()));
@@ -404,7 +408,7 @@ Summary convert(const Options& options, const std::function<void(const std::stri
                     // resulting longitude shift is invisible since the image wraps.
                     cv::rotate(stitched, stitched, cv::ROTATE_180);
                 }
-                fs::path filename = equirect_dir / (std::to_string(log_time) + ".jpg");
+                fs::path filename = equirect_dir / ("equirectangular_" + std::to_string(log_time) + ".jpg");
                 if (!cv::imwrite(filename.string(), stitched)) {
                     throw std::runtime_error("could not write " + filename.string());
                 }
