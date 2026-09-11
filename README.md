@@ -5,10 +5,10 @@ converts an Insta360 `.insv` capture into **per-camera folders of timestamped JP
 frames** instead of a ROS 2 MCAP bag: both fisheye tracks, each frame named by its
 nanosecond timestamp on the camera's own clock, plus an optional 1 kHz IMU CSV,
 per-lens intrinsics sidecar, the camera's own stitched equirectangular preview, and
-(opt-in) a real per-frame geometric equirectangular stitch computed from the
-camera's own lens calibration -- see [Equirect video](#equirect-opt-in) below. Uses
-OpenCV for exactly two things: decoding the firmware preview's pixel format, and the
-stitch's projection/blending math.
+a real per-frame geometric equirectangular stitch computed from the camera's own
+lens calibration -- see [Equirect video](#equirect) below. Uses OpenCV for
+exactly two things: decoding the firmware preview's pixel format, and the stitch's
+projection/blending math.
 
 Developed and verified against an **Insta360 X5** (firmware `v1.10.11_build1`, 5.7K
 dual-fisheye, 2880x2880 per lens at 24 fps). The trailer format is shared across the
@@ -55,9 +55,9 @@ Run `insta360-to-images --help` for the full set. The useful ones:
 | `--max-frames N` | Stop after N frames. |
 | `--swap-lenses` | Map the second video track to `cam_front`. |
 | `--no-imu` / `--no-camera-info` / `--no-panorama` | Leave out `imu.csv` / the intrinsics sidecar / `panorama.jpg`. |
-| `--equirect` | Also stitch a geometric per-frame equirect video (opt-in, compute-heavy). |
+| `--no-equirect` | Skip stitching the geometric per-frame equirect video (on by default, compute-heavy). |
 | `--equirect-width N` | Equirect output width; height is always `N/2`. Default 3840. |
-| `--equirect-flip` | Rotate the equirect output 180 degrees (row 0 = south pole instead of north), for consumers with the opposite convention. A full rotation, not a mirror flip -- see below. |
+| `--no-equirect-flip` | Don't rotate the equirect output 180 degrees; row 0 becomes the north pole instead of the south pole. The flip is on by default and, when applied, is a full rotation, not a mirror flip -- see below. |
 | `--relative-time` | Start timestamps at zero instead of the capture wall clock. |
 | `-f`, `--force` | Write into a non-empty output directory. |
 
@@ -76,7 +76,7 @@ Run `insta360-to-images --help` for the full set. The useful ones:
     ...
   imu.csv                   # timestamp_ns,accel_x_mps2,...,gyro_z_radps at ~1 kHz
   panorama.jpg              # the camera's own firmware-stitched equirect preview
-  equirect/                 # only with --equirect
+  equirect/                 # unless --no-equirect
     <timestamp_ns>.jpg      # one geometrically stitched equirect frame per video frame
 ```
 
@@ -91,17 +91,19 @@ firmware stitched from both lenses at capture time (trailer record `0x0002`); th
 tool just decodes its NV12 pixel format via `cv::cvtColor` and writes it out as a
 JPEG via `cv::imwrite`.
 
-### `equirect/` (opt-in)
+### `equirect/`
 
-Pass `--equirect` and this tool *does* compute a real per-frame geometric
-equirectangular stitch, at `--equirect-width` resolution (default 3840x1920), one
-JPEG per video frame, named the same way as `cam_front`/`cam_back`. Row 0 is the
-north pole (straight up) by default; pass `--equirect-flip` if your consumer expects
-row 0 at the south pole instead. That flag does a full 180-degree rotation
-(`cv::ROTATE_180`), not a single-axis flip: negating only latitude (or only
-longitude) is a mirror reflection that reverses the scene's handedness -- panning
-left vs. right would feel backwards in a viewer. Rotating both axes swaps the pole
-correctly; the resulting longitude shift is invisible since the image wraps.
+By default this tool computes a real per-frame geometric equirectangular stitch, at
+`--equirect-width` resolution (default 3840x1920), one JPEG per video frame, named
+the same way as `cam_front`/`cam_back`; pass `--no-equirect` to skip it (it's
+compute-heavy). Row 0 is the south pole by default (the 180-degree flip, see below,
+is applied unless you pass `--no-equirect-flip`); pass `--no-equirect-flip` if your
+consumer expects row 0 at the north pole (straight up) instead. The flip does a full
+180-degree rotation (`cv::ROTATE_180`), not a single-axis flip: negating only
+latitude (or only longitude) is a mirror reflection that reverses the scene's
+handedness -- panning left vs. right would feel backwards in a viewer. Rotating both
+axes swaps the pole correctly; the resulting longitude shift is invisible since the
+image wraps.
 
 Getting here took ruling out the obvious approach first: the embedded `offset_v2`
 lens calibration's `fx`/`fy`/`cx`/`cy` plus five distortion coefficients do not fit
@@ -166,7 +168,7 @@ its ambiguities changed in this rewrite.
   passed through verbatim in `camera_info.json`.
 - **`camera_info.json`'s `k`/`p` are plain pinhole, not the real lens model.**
   `distortion_model` is `insta360_mei_v2` (Mei/Barreto unified spherical model, `xi`
-  plus radial/tangential terms -- see [Equirect video](#equirect-opt-in)), which is
+  plus radial/tangential terms -- see [Equirect video](#equirect)), which is
   what `--equirect` actually uses. `k`/`p` in that same file are ordinary pinhole
   matrices built from `fx`/`fy`/`cx`/`cy` alone and must not be fed to
   `cv::undistort`/`cv::fisheye` as if they captured the real distortion -- they don't.
@@ -180,7 +182,7 @@ its ambiguities changed in this rewrite.
   sensor readings, not a calibrated `sensor_msgs/Imu`-equivalent.
 - **`--equirect` has no horizon leveling.** Without IMU-based stabilization, the
   output tilts and rolls exactly as the physical camera did at each instant -- see
-  [Equirect video](#equirect-opt-in).
+  [Equirect video](#equirect).
 
 ## The `.insv` format
 

@@ -61,11 +61,12 @@ void print_usage() {
               << "  --no-camera-info        leave out the per-camera intrinsics sidecar\n"
               << "  --no-panorama           leave out panorama.jpg (the camera's own\n"
               << "                          firmware-stitched preview)\n"
-              << "  --equirect              also stitch a geometric per-frame equirect\n"
+              << "  --no-equirect           skip stitching the geometric per-frame equirect\n"
               << "                          panorama video (compute-heavy; see README)\n"
               << "  --equirect-width N      equirect output width, height is N/2; default 3840\n"
-              << "  --equirect-flip         rotate the equirect output 180 degrees (row 0 =\n"
-              << "                          south pole instead of north)\n"
+              << "  --no-equirect-flip      don't rotate the equirect output 180 degrees "
+                 "(row 0 =\n"
+              << "                          north pole instead of south)\n"
               << "  --relative-time         start timestamps at zero instead of the camera's "
                  "wall clock\n"
               << "  -f, --force             write into a non-empty output directory\n"
@@ -84,9 +85,9 @@ struct ParsedArgs {
     bool include_imu = true;
     bool include_camera_info = true;
     bool include_panorama = true;
-    bool include_equirect = false;
+    bool include_equirect = true;
     int equirect_width = 3840;
-    bool equirect_flip = false;
+    bool equirect_flip = true;
     bool relative_time = false;
     bool force = false;
     bool quiet = false;
@@ -129,10 +130,14 @@ std::optional<ParsedArgs> parse_args(int argc, char** argv) {
             args.include_panorama = false;
         } else if (token == "--equirect") {
             args.include_equirect = true;
+        } else if (token == "--no-equirect") {
+            args.include_equirect = false;
         } else if (token == "--equirect-width") {
             args.equirect_width = std::stoi(next_value(i, token));
         } else if (token == "--equirect-flip") {
             args.equirect_flip = true;
+        } else if (token == "--no-equirect-flip") {
+            args.equirect_flip = false;
         } else if (token == "--relative-time") {
             args.relative_time = true;
         } else if (token == "-f" || token == "--force") {
