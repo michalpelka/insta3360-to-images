@@ -57,7 +57,7 @@ Run `insta360-to-images --help` for the full set. The useful ones:
 | `--no-imu` / `--no-camera-info` / `--no-panorama` | Leave out `imu.csv` / the intrinsics sidecar / `panorama.jpg`. |
 | `--equirect` | Also stitch a geometric per-frame equirect video (opt-in, compute-heavy). |
 | `--equirect-width N` | Equirect output width; height is always `N/2`. Default 3840. |
-| `--equirect-flip` | Flip the equirect output vertically (row 0 = south pole instead of north), for consumers with the opposite convention. |
+| `--equirect-flip` | Rotate the equirect output 180 degrees (row 0 = south pole instead of north), for consumers with the opposite convention. A full rotation, not a mirror flip -- see below. |
 | `--relative-time` | Start timestamps at zero instead of the capture wall clock. |
 | `-f`, `--force` | Write into a non-empty output directory. |
 
@@ -97,7 +97,11 @@ Pass `--equirect` and this tool *does* compute a real per-frame geometric
 equirectangular stitch, at `--equirect-width` resolution (default 3840x1920), one
 JPEG per video frame, named the same way as `cam_front`/`cam_back`. Row 0 is the
 north pole (straight up) by default; pass `--equirect-flip` if your consumer expects
-row 0 at the south pole instead.
+row 0 at the south pole instead. That flag does a full 180-degree rotation
+(`cv::ROTATE_180`), not a single-axis flip: negating only latitude (or only
+longitude) is a mirror reflection that reverses the scene's handedness -- panning
+left vs. right would feel backwards in a viewer. Rotating both axes swaps the pole
+correctly; the resulting longitude shift is invisible since the image wraps.
 
 Getting here took ruling out the obvious approach first: the embedded `offset_v2`
 lens calibration's `fx`/`fy`/`cx`/`cy` plus five distortion coefficients do not fit

@@ -395,8 +395,14 @@ Summary convert(const Options& options, const std::function<void(const std::stri
                 cv::Mat back_eq = remap_to_equirect(back_fisheye, equirect_maps[1]);
                 cv::Mat stitched =
                     blend_equirect(front_eq, equirect_maps[0].weight, back_eq, equirect_maps[1].weight);
-                if (options.equirect_flip_vertical) {
-                    cv::flip(stitched, stitched, 0);  // flip about the horizontal axis
+                if (options.equirect_rotate_180) {
+                    // A full 180-degree rotation (both axes), not a single-axis flip: on
+                    // an equirect sphere, negating latitude alone (or longitude alone)
+                    // is a mirror reflection -- it reverses the scene's handedness, so
+                    // panning left vs. right would feel backwards in a viewer. Rotating
+                    // both axes swaps the pole while preserving handedness; the
+                    // resulting longitude shift is invisible since the image wraps.
+                    cv::rotate(stitched, stitched, cv::ROTATE_180);
                 }
                 fs::path filename = equirect_dir / (std::to_string(log_time) + ".jpg");
                 if (!cv::imwrite(filename.string(), stitched)) {

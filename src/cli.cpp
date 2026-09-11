@@ -64,7 +64,7 @@ void print_usage() {
               << "  --equirect              also stitch a geometric per-frame equirect\n"
               << "                          panorama video (compute-heavy; see README)\n"
               << "  --equirect-width N      equirect output width, height is N/2; default 3840\n"
-              << "  --equirect-flip         flip the equirect output vertically (row 0 =\n"
+              << "  --equirect-flip         rotate the equirect output 180 degrees (row 0 =\n"
               << "                          south pole instead of north)\n"
               << "  --relative-time         start timestamps at zero instead of the camera's "
                  "wall clock\n"
@@ -328,7 +328,7 @@ int main(int argc, char** argv) {
     options.include_panorama = args.include_panorama;
     options.include_equirect = args.include_equirect;
     options.equirect_width = args.equirect_width;
-    options.equirect_flip_vertical = args.equirect_flip;
+    options.equirect_rotate_180 = args.equirect_flip;
     options.force = args.force;
 
     auto log = args.quiet ? std::function<void(const std::string&)>([](const std::string&) {})
