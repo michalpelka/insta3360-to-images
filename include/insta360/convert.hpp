@@ -24,6 +24,7 @@ struct Options {
     bool include_panorama = true;
     bool include_equirect = false;  // opt-in: geometric per-frame stitch, compute-heavy
     int equirect_width = 3840;      // height is always half this
+    bool equirect_flip_vertical = false;  // for consumers expecting row 0 = south pole
     bool force = false;
 };
 

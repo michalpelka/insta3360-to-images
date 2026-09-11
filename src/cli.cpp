@@ -64,6 +64,8 @@ void print_usage() {
               << "  --equirect              also stitch a geometric per-frame equirect\n"
               << "                          panorama video (compute-heavy; see README)\n"
               << "  --equirect-width N      equirect output width, height is N/2; default 3840\n"
+              << "  --equirect-flip         flip the equirect output vertically (row 0 =\n"
+              << "                          south pole instead of north)\n"
               << "  --relative-time         start timestamps at zero instead of the camera's "
                  "wall clock\n"
               << "  -f, --force             write into a non-empty output directory\n"
@@ -84,6 +86,7 @@ struct ParsedArgs {
     bool include_panorama = true;
     bool include_equirect = false;
     int equirect_width = 3840;
+    bool equirect_flip = false;
     bool relative_time = false;
     bool force = false;
     bool quiet = false;
@@ -128,6 +131,8 @@ std::optional<ParsedArgs> parse_args(int argc, char** argv) {
             args.include_equirect = true;
         } else if (token == "--equirect-width") {
             args.equirect_width = std::stoi(next_value(i, token));
+        } else if (token == "--equirect-flip") {
+            args.equirect_flip = true;
         } else if (token == "--relative-time") {
             args.relative_time = true;
         } else if (token == "-f" || token == "--force") {
@@ -323,6 +328,7 @@ int main(int argc, char** argv) {
     options.include_panorama = args.include_panorama;
     options.include_equirect = args.include_equirect;
     options.equirect_width = args.equirect_width;
+    options.equirect_flip_vertical = args.equirect_flip;
     options.force = args.force;
 
     auto log = args.quiet ? std::function<void(const std::string&)>([](const std::string&) {})
