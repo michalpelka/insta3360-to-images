@@ -52,19 +52,19 @@ std::vector<LensCalibration> parse_offset_v2(const std::string& text, int width,
     for (int index = 0; index < lens_count; ++index) {
         const std::string* group = body.data() + index * kFieldsPerLens;
 
-        double fx, fy, cx, cy;
+        double xi, fx, fy, cx, cy;
         double rx, ry, rz, tx, ty, tz;
-        double distortion[5];
+        double k1, k2, k3, p1, p2;
         double canvas_w_d, canvas_h_d;
-        bool ok = parse_double(group[1], fx) && parse_double(group[2], fy) &&
-                  parse_double(group[3], cx) && parse_double(group[4], cy) &&
-                  parse_double(group[5], rx) && parse_double(group[6], ry) &&
-                  parse_double(group[7], rz) && parse_double(group[8], tx) &&
-                  parse_double(group[9], ty) && parse_double(group[10], tz) &&
-                  parse_double(group[11], distortion[0]) && parse_double(group[12], distortion[1]) &&
-                  parse_double(group[13], distortion[2]) && parse_double(group[14], distortion[3]) &&
-                  parse_double(group[15], distortion[4]) && parse_double(group[16], canvas_w_d) &&
-                  parse_double(group[17], canvas_h_d);
+        bool ok = parse_double(group[0], xi) && parse_double(group[1], fx) &&
+                  parse_double(group[2], fy) && parse_double(group[3], cx) &&
+                  parse_double(group[4], cy) && parse_double(group[5], rx) &&
+                  parse_double(group[6], ry) && parse_double(group[7], rz) &&
+                  parse_double(group[8], tx) && parse_double(group[9], ty) &&
+                  parse_double(group[10], tz) && parse_double(group[11], k1) &&
+                  parse_double(group[12], k2) && parse_double(group[13], k3) &&
+                  parse_double(group[14], p1) && parse_double(group[15], p2) &&
+                  parse_double(group[16], canvas_w_d) && parse_double(group[17], canvas_h_d);
         if (!ok) return {};
         int canvas_w = static_cast<int>(canvas_w_d);
         int canvas_h = static_cast<int>(canvas_h_d);
@@ -85,7 +85,13 @@ std::vector<LensCalibration> parse_offset_v2(const std::string& text, int width,
         lens.fy = fy * scale_y;
         lens.cx = (cx - index * half_width) * scale_x;
         lens.cy = cy * scale_y;
-        lens.distortion = {distortion[0], distortion[1], distortion[2], distortion[3], distortion[4]};
+        lens.xi = xi;  // dimensionless sphere-model parameter; not a pixel quantity
+        lens.k1 = k1;
+        lens.k2 = k2;
+        lens.k3 = k3;
+        lens.p1 = p1;
+        lens.p2 = p2;
+        lens.distortion = {k1, k2, k3, p1, p2};
         lens.rotation_deg = {rx, ry, rz};
         lens.translation = {tx, ty, tz};
         lens.canvas = {canvas_w, canvas_h};
@@ -98,10 +104,10 @@ std::vector<LensCalibration> parse_offset_v2(const std::string& text, int width,
 std::string summarise(const LensCalibration& lens) {
     char buf[256];
     std::snprintf(buf, sizeof(buf),
-                   "lens %d: fx=%.2f fy=%.2f cx=%.2f cy=%.2f "
+                   "lens %d: xi=%.3f fx=%.2f fy=%.2f cx=%.2f cy=%.2f "
                    "(rescaled from a %dx%d canvas by %.5fx%.5fx)",
-                   lens.index, lens.fx, lens.fy, lens.cx, lens.cy, lens.canvas[0], lens.canvas[1],
-                   lens.scale[0], lens.scale[1]);
+                   lens.index, lens.xi, lens.fx, lens.fy, lens.cx, lens.cy, lens.canvas[0],
+                   lens.canvas[1], lens.scale[0], lens.scale[1]);
     return buf;
 }
 

@@ -61,6 +61,9 @@ void print_usage() {
               << "  --no-camera-info        leave out the per-camera intrinsics sidecar\n"
               << "  --no-panorama           leave out panorama.jpg (the camera's own\n"
               << "                          firmware-stitched preview)\n"
+              << "  --equirect              also stitch a geometric per-frame equirect\n"
+              << "                          panorama video (compute-heavy; see README)\n"
+              << "  --equirect-width N      equirect output width, height is N/2; default 3840\n"
               << "  --relative-time         start timestamps at zero instead of the camera's "
                  "wall clock\n"
               << "  -f, --force             write into a non-empty output directory\n"
@@ -79,6 +82,8 @@ struct ParsedArgs {
     bool include_imu = true;
     bool include_camera_info = true;
     bool include_panorama = true;
+    bool include_equirect = false;
+    int equirect_width = 3840;
     bool relative_time = false;
     bool force = false;
     bool quiet = false;
@@ -119,6 +124,10 @@ std::optional<ParsedArgs> parse_args(int argc, char** argv) {
             args.include_camera_info = false;
         } else if (token == "--no-panorama") {
             args.include_panorama = false;
+        } else if (token == "--equirect") {
+            args.include_equirect = true;
+        } else if (token == "--equirect-width") {
+            args.equirect_width = std::stoi(next_value(i, token));
         } else if (token == "--relative-time") {
             args.relative_time = true;
         } else if (token == "-f" || token == "--force") {
@@ -312,6 +321,8 @@ int main(int argc, char** argv) {
     options.include_imu = args.include_imu;
     options.include_camera_info = args.include_camera_info;
     options.include_panorama = args.include_panorama;
+    options.include_equirect = args.include_equirect;
+    options.equirect_width = args.equirect_width;
     options.force = args.force;
 
     auto log = args.quiet ? std::function<void(const std::string&)>([](const std::string&) {})

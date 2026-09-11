@@ -22,6 +22,8 @@ struct Options {
     bool include_imu = true;
     bool include_camera_info = true;
     bool include_panorama = true;
+    bool include_equirect = false;  // opt-in: geometric per-frame stitch, compute-heavy
+    int equirect_width = 3840;      // height is always half this
     bool force = false;
 };
 

@@ -9,7 +9,10 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <opencv2/imgcodecs.hpp>
+
 #include "insta360/calibration.hpp"
+#include "insta360/equirect.hpp"
 #include "insta360/media.hpp"
 #include "insta360/metadata.hpp"
 #include "insta360/panorama.hpp"
@@ -106,6 +109,7 @@ void write_camera_info(const fs::path& path, const Camera& camera) {
     out << "  \"width\": " << camera.width << ",\n";
     out << "  \"height\": " << camera.height << ",\n";
     out << "  \"distortion_model\": \"" << DISTORTION_MODEL << "\",\n";
+    out << "  \"xi\": " << json_number(lens.xi) << ",\n";
     out << "  \"fx\": " << json_number(lens.fx) << ",\n";
     out << "  \"fy\": " << json_number(lens.fy) << ",\n";
     out << "  \"cx\": " << json_number(lens.cx) << ",\n";
@@ -319,6 +323,28 @@ Summary convert(const Options& options, const std::function<void(const std::stri
         }
     }
 
+    // -- geometric equirectangular stitch (opt-in; see equirect.hpp) ---------------
+    bool do_equirect = options.include_equirect;
+    std::vector<EquirectMaps> equirect_maps;  // indexed like `cameras`, when do_equirect
+    fs::path equirect_dir = output_dir / "equirect";
+    if (do_equirect) {
+        if (cameras.size() != 2 || !cameras[0].calibration || !cameras[1].calibration) {
+            summary.warnings.push_back(
+                "equirect stitching needs both lenses' calibration; panorama.jpg (if enabled) "
+                "is the fallback");
+            do_equirect = false;
+        } else {
+            int eq_width = options.equirect_width;
+            int eq_height = eq_width / 2;
+            for (size_t slot = 0; slot < cameras.size(); ++slot) {
+                bool is_back_lens = cameras[slot].name == "cam_back";
+                equirect_maps.push_back(
+                    build_equirect_maps(*cameras[slot].calibration, eq_width, eq_height, is_back_lens));
+            }
+            fs::create_directories(equirect_dir);
+        }
+    }
+
     // -- video ---------------------------------------------------------------------
     int64_t first_ns = time_of(origin_us);
     int64_t last_ns = first_ns;
@@ -361,6 +387,19 @@ Summary convert(const Options& options, const std::function<void(const std::stri
                           static_cast<std::streamsize>(frame_data[i]->size()));
                 if (!out) throw std::runtime_error("could not write " + filename.string());
                 summary.counts[cameras[i].name]++;
+            }
+            if (do_equirect) {
+                cv::Mat front_fisheye = cv::imdecode(*frame_data[0], cv::IMREAD_COLOR);
+                cv::Mat back_fisheye = cv::imdecode(*frame_data[1], cv::IMREAD_COLOR);
+                cv::Mat front_eq = remap_to_equirect(front_fisheye, equirect_maps[0]);
+                cv::Mat back_eq = remap_to_equirect(back_fisheye, equirect_maps[1]);
+                cv::Mat stitched =
+                    blend_equirect(front_eq, equirect_maps[0].weight, back_eq, equirect_maps[1].weight);
+                fs::path filename = equirect_dir / (std::to_string(log_time) + ".jpg");
+                if (!cv::imwrite(filename.string(), stitched)) {
+                    throw std::runtime_error("could not write " + filename.string());
+                }
+                summary.counts["equirect"]++;
             }
             last_ns = std::max(last_ns, log_time);
             written = index + 1;
