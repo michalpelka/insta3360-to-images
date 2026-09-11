@@ -1,5 +1,6 @@
 #include "insta360/sensors.hpp"
 
+#include <cmath>
 #include <cstring>
 
 #include "test_util.hpp"
